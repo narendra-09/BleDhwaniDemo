@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">BluetoothDemo</string>
+    <string name="scan">Scan</string>
+    <string name="connect">Connect</string>
+</resources>
