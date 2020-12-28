@@ -12,7 +12,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="30dp"
-        android:text="@string/connect"
+        android:text="@string/turn_on"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -37,4 +37,26 @@
         android:textColor="@android:color/holo_orange_light"
         android:textSize="30sp"
         android:layout_marginTop="20dp"/>
+    <Button
+        android:id="@+id/bond"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/device"
+        android:layout_marginTop="20dp"
+        android:text="@string/connect"
+        android:enabled="false"
+        />
+    <Button
+        android:id="@+id/disconnectBond"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/bond"
+        android:layout_marginTop="20dp"
+        android:text="@string/disconnect"
+        android:enabled="false"
+        />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -6,26 +6,31 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import com.example.bluetoothdemo.databinding.ActivityMainBinding;
 
 import java.util.ArrayList;
 
-public class MainActivity extends AppCompatActivity{
+public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private ActivityMainBinding mainBinding;
     private BluetoothManager bluetoothManager;
@@ -34,15 +39,16 @@ public class MainActivity extends AppCompatActivity{
     private BluetoothLeScanner leScanner;
     private boolean scanning;
     private final int ACTION_REQUEST_ENABLE = 100;
-    private static final int scan_period = 15000;
+    private static final int scan_period = 10500;
     private BluetoothDevice bluetoothDevice;
-    private ArrayList<BluetoothDevice> bluetoothDevices;
     private final int REQUEST_CODE_PERMISSIONS = 10;
     private final String[] REQUIRED_PERMISSIONS = new String[]{
             "android.permission.ACCESS_FINE_LOCATION",
             "android.permission.ACCESS_COARSE_LOCATION",
             "android.permission.BLUETOOTH_ADMIN",
             "android.permission.BLUETOOTH"};
+    private BleService bleService;
+    private Intent serviceIntent;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,7 +56,7 @@ public class MainActivity extends AppCompatActivity{
         mainBinding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(mainBinding.getRoot());
         checkingPermissions();
-        bluetoothDevices = new ArrayList<>();
+        serviceIntent = new Intent(MainActivity.this, BleService.class);
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(this, "BLE not supported", Toast.LENGTH_SHORT).show();
             finish();
@@ -59,17 +65,35 @@ public class MainActivity extends AppCompatActivity{
         }
         setUpBle();
         scanCallback = new ScanCallback() {
+            @SuppressLint("SetTextI18n")
             @Override
             public void onScanResult(int callbackType, ScanResult result) {
                 super.onScanResult(callbackType, result);
-                    Toast.makeText(MainActivity.this, ""+result.getDevice().getName(), Toast.LENGTH_SHORT).show();
+                if ("BT05".equals(result.getDevice().getName())) {
+                    mainBinding.device.setText(result.getDevice().getName() + "" + result.getDevice().getAddress());
+                    bluetoothDevice = result.getDevice();
+                    mainBinding.bond.setEnabled(true);
+                    mainBinding.disconnectBond.setEnabled(true);
+                    //Toast.makeText(MainActivity.this, "" + result.getDevice().getName() + "" + result.getDevice().getAddress(), Toast.LENGTH_SHORT).show();
                 }
+            }
         };
         mainBinding.connectBt.setOnClickListener(v -> enableBle());
         mainBinding.scanBt.setOnClickListener(v -> {
-            if(bluetoothAdapter.isEnabled()){
+            if (bluetoothAdapter.isEnabled()) {
                 scan();
             }
+        });
+        mainBinding.bond.setOnClickListener(v -> {
+            if(bleService == null){
+            bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);}
+            else{
+                bleService.connect(bluetoothDevice.getAddress());
+            }
+        });
+        mainBinding.disconnectBond.setOnClickListener(v -> {
+            if(bleService != null)
+            bleService.disConnect();
         });
 
     }
@@ -107,16 +131,16 @@ public class MainActivity extends AppCompatActivity{
 
     private void scan() {
         Handler handler = new Handler(Looper.getMainLooper());
-        if (!scanning && leScanner!=null) {
+        if (!scanning) {
             handler.postDelayed(() -> {
                 scanning = false;
                 leScanner.stopScan(scanCallback);
-               }, scan_period);
+            }, scan_period);
             scanning = true;
             leScanner.startScan(scanCallback);
         } else {
             scanning = false;
-            assert leScanner != null;
+            //assert leScanner != null;
             leScanner.stopScan(scanCallback);
         }
     }
@@ -139,5 +163,28 @@ public class MainActivity extends AppCompatActivity{
                 Toast.makeText(this, "Not granted", Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+    private ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            bleService = ((BleService.LocalBinder) service).getService();
+            if (!bleService.initialize()) {
+                Log.d(TAG, "onServiceConnected: Failed");
+                finish();
+            }
+            bleService.connect(bluetoothDevice.getAddress());
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d(TAG, "onServiceDisconnected: Failed");
+        }
+    };
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unbindService(serviceConnection);
     }
 }

@@ -2,4 +2,6 @@
     <string name="app_name">BluetoothDemo</string>
     <string name="scan">Scan</string>
     <string name="connect">Connect</string>
+    <string name="turn_on">Turn On</string>
+    <string name="disconnect">DisConnect</string>
 </resources>
