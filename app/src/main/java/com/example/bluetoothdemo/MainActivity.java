@@ -13,9 +13,11 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -49,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
             "android.permission.BLUETOOTH"};
     private BleService bleService;
     private Intent serviceIntent;
+    private boolean bleConnected = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,6 +77,7 @@ public class MainActivity extends AppCompatActivity {
                     bluetoothDevice = result.getDevice();
                     mainBinding.bond.setEnabled(true);
                     mainBinding.disconnectBond.setEnabled(true);
+                    leScanner.stopScan(scanCallback);
                     //Toast.makeText(MainActivity.this, "" + result.getDevice().getName() + "" + result.getDevice().getAddress(), Toast.LENGTH_SHORT).show();
                 }
             }
@@ -85,17 +89,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         mainBinding.bond.setOnClickListener(v -> {
-            if(bleService == null){
-            bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);}
-            else{
+            if (bleService == null) {
+                bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);
+            } else {
                 bleService.connect(bluetoothDevice.getAddress());
             }
         });
         mainBinding.disconnectBond.setOnClickListener(v -> {
-            if(bleService != null)
-            bleService.disConnect();
+            if (bleService != null)
+                bleService.disConnect();
         });
+    }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(gattUpdatesReceiver,gattUpdatesIF());
     }
 
     private void checkingPermissions() {
@@ -140,7 +149,6 @@ public class MainActivity extends AppCompatActivity {
             leScanner.startScan(scanCallback);
         } else {
             scanning = false;
-            //assert leScanner != null;
             leScanner.stopScan(scanCallback);
         }
     }
@@ -165,7 +173,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private ServiceConnection serviceConnection = new ServiceConnection() {
+    private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             bleService = ((BleService.LocalBinder) service).getService();
@@ -181,6 +189,37 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "onServiceDisconnected: Failed");
         }
     };
+
+    private BroadcastReceiver gattUpdatesReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            if (BleService.ACTION_GATT_CONNECTED.equals(action)) {
+                bleConnected = true;
+            } else if (BleService.ACTION_GATT_DISCONNECTED.equals(action)) {
+                bleConnected = false;
+            } else if (BleService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+                Log.d(TAG, "onReceive: Services Discovered");
+            }else if (BleService.ACTION_DATA_AVAILABLE.equals(action)){
+                Log.d(TAG, "onReceive: Data");
+            }
+        }
+    };
+
+    private static IntentFilter gattUpdatesIF() {
+        final IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(BleService.ACTION_GATT_CONNECTED);
+        intentFilter.addAction(BleService.ACTION_GATT_DISCONNECTED);
+        intentFilter.addAction(BleService.ACTION_GATT_SERVICES_DISCOVERED);
+        intentFilter.addAction(BleService.ACTION_DATA_AVAILABLE);
+        return intentFilter;
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterReceiver(gattUpdatesReceiver);
+    }
 
     @Override
     protected void onDestroy() {
